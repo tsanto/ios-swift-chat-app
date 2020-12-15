@@ -15,18 +15,18 @@ class RightLinkPreviewBubble: UITableViewCell {
     
     // MARK: - Declaration of IBOutlets
     
+    @IBOutlet weak var reactionView: ReactionView!
     @IBOutlet weak var icon: UIImageView!
     @IBOutlet weak var title: UILabel!
     @IBOutlet weak var linkDescription: UILabel!
     @IBOutlet weak var visitButton: UIButton!
     @IBOutlet weak var timeStamp: UILabel!
     @IBOutlet weak var receipt: UIImageView!
-    @IBOutlet weak var message: UILabel!
+    @IBOutlet weak var message: HyperlinkLabel!
     @IBOutlet weak var messageStack: UIStackView!
     @IBOutlet weak var receiptStack: UIStackView!
     @IBOutlet weak var playbutton: UIButton!
     @IBOutlet weak var iconView: UIView!
-    @IBOutlet weak var tintedView: UIView!
     @IBOutlet weak var replybutton: UIButton!
     
     // MARK: - Declaration of Variables
@@ -44,16 +44,25 @@ class RightLinkPreviewBubble: UITableViewCell {
     
     var url:String?
     var linkPreviewDelegate: LinkPreviewDelegate?
+    weak var hyperlinkdelegate: HyperLinkDelegate?
     var linkPreviewMessage: TextMessage! {
         didSet{
             receiptStack.isHidden = true
             parseLinkPreviewForMessage(message: linkPreviewMessage)
+            parseMaskedData(forMessage: linkPreviewMessage)
+            self.reactionView.parseMessageReactionForMessage(message: linkPreviewMessage) { (success) in
+                if success == true {
+                    self.reactionView.isHidden = false
+                }else{
+                    self.reactionView.isHidden = true
+                }
+            }
             if let url = url {
                 if url.contains("youtube")  ||  url.contains("youtu.be") {
-                    visitButton.setTitle(NSLocalizedString("VIEW_ON_YOUTUBE", comment: ""), for: .normal)
+                    visitButton.setTitle(NSLocalizedString("VIEW_ON_YOUTUBE", bundle: UIKitSettings.bundle, comment: ""), for: .normal)
                     playbutton.isHidden = false
                 }else{
-                    visitButton.setTitle(NSLocalizedString("Visit", comment: ""), for: .normal)
+                    visitButton.setTitle(NSLocalizedString("Visit", bundle: UIKitSettings.bundle, comment: ""), for: .normal)
                     playbutton.isHidden = true
                 }
             }
@@ -67,21 +76,21 @@ class RightLinkPreviewBubble: UITableViewCell {
             icon.roundViewCorners([.layerMinXMinYCorner,.layerMaxXMinYCorner], radius: 15)
             iconView.roundViewCorners([.layerMinXMinYCorner,.layerMaxXMinYCorner], radius: 15)
             visitButton.roundViewCorners([.layerMinXMaxYCorner,.layerMaxXMaxYCorner], radius: 15)
-            if linkPreviewMessage.readAt > 0 && linkPreviewMessage.receiverType == .user {
-                receipt.image = #imageLiteral(resourceName: "read")
+            if linkPreviewMessage.readAt > 0 {
+                receipt.image = UIImage(named: "read", in: UIKitSettings.bundle, compatibleWith: nil)
                 timeStamp.text = String().setMessageTime(time: Int(linkPreviewMessage?.readAt ?? 0))
             }else if linkPreviewMessage.deliveredAt > 0 {
-                receipt.image = #imageLiteral(resourceName: "delivered")
+                receipt.image = UIImage(named: "delivered", in: UIKitSettings.bundle, compatibleWith: nil)
                 timeStamp.text = String().setMessageTime(time: Int(linkPreviewMessage?.deliveredAt ?? 0))
             }else if linkPreviewMessage.sentAt > 0 {
-                receipt.image = #imageLiteral(resourceName: "sent")
+                receipt.image = UIImage(named: "sent", in: UIKitSettings.bundle, compatibleWith: nil)
                 timeStamp.text = String().setMessageTime(time: Int(linkPreviewMessage?.sentAt ?? 0))
             }else if linkPreviewMessage.sentAt == 0 {
-                receipt.image = #imageLiteral(resourceName: "wait")
-                timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                receipt.image = UIImage(named: "wait", in: UIKitSettings.bundle, compatibleWith: nil)
+                timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
             }
-            
-            if linkPreviewMessage?.replyCount != 0 {
+            replybutton.tintColor = UIKitSettings.primaryColor
+            if linkPreviewMessage?.replyCount != 0 &&  UIKitSettings.threadedChats == .enabled {
                 replybutton.isHidden = false
                 if linkPreviewMessage?.replyCount == 1 {
                     replybutton.setTitle("1 reply", for: .normal)
@@ -92,6 +101,38 @@ class RightLinkPreviewBubble: UITableViewCell {
                 }
             }else{
                 replybutton.isHidden = true
+            }
+            let phoneParser1 = HyperlinkType.custom(pattern: RegexParser.phonePattern1)
+            let phoneParser2 = HyperlinkType.custom(pattern: RegexParser.phonePattern2)
+            let emailParser = HyperlinkType.custom(pattern: RegexParser.emailPattern)
+            
+            message.enabledTypes.append(phoneParser1)
+            message.enabledTypes.append(phoneParser2)
+            message.enabledTypes.append(emailParser)
+            
+            message.handleURLTap { self.hyperlinkdelegate?.didTapOnURL(url: $0.absoluteString) }
+            
+            message.handleCustomTap(for: .custom(pattern: RegexParser.phonePattern1)) { (number) in
+                self.hyperlinkdelegate?.didTapOnPhoneNumber(number: number)
+            }
+            
+            message.handleCustomTap(for: .custom(pattern: RegexParser.phonePattern2)) { (number) in
+                self.hyperlinkdelegate?.didTapOnPhoneNumber(number: number)
+            }
+            
+            message.handleCustomTap(for: .custom(pattern: RegexParser.emailPattern)) { (emailID) in
+                self.hyperlinkdelegate?.didTapOnEmail(email: emailID)
+            }
+            
+            message.customize { label in
+                label.URLColor = UIKitSettings.URLColor
+                label.URLSelectedColor  = UIKitSettings.URLSelectedColor
+                label.customColor[phoneParser1] = UIKitSettings.PhoneNumberColor
+                label.customSelectedColor[phoneParser1] = UIKitSettings.PhoneNumberSelectedColor
+                label.customColor[phoneParser2] = UIKitSettings.PhoneNumberColor
+                label.customSelectedColor[phoneParser2] = UIKitSettings.PhoneNumberSelectedColor
+                label.customColor[emailParser] = UIKitSettings.EmailIDColor
+                label.customSelectedColor[emailParser] = UIKitSettings.EmailIDColor
             }
         }
     }
@@ -105,7 +146,7 @@ class RightLinkPreviewBubble: UITableViewCell {
      - Copyright:  ©  2020 CometChat Inc.
      */
     private func parseLinkPreviewForMessage(message: TextMessage){
-        if let metaData = linkPreviewMessage.metaData , let injected = metaData["@injected"] as? [String : Any], let cometChatExtension =  injected["extensions"] as? [String : Any], let linkPreviewDictionary = cometChatExtension["link-preview"] as? [String : Any], let linkArray = linkPreviewDictionary["links"] as? [[String: Any]] {
+        if let metaData = message.metaData , let injected = metaData["@injected"] as? [String : Any], let cometChatExtension =  injected["extensions"] as? [String : Any], let linkPreviewDictionary = cometChatExtension["link-preview"] as? [String : Any], let linkArray = linkPreviewDictionary["links"] as? [[String: Any]] {
             
             guard let linkPreview = linkArray[safe: 0] else {
                 return
@@ -121,12 +162,48 @@ class RightLinkPreviewBubble: UITableViewCell {
             
             if let thumbnail = linkPreview["image"] as? String {
                 let url = URL(string: thumbnail)
-                icon.cf.setImage(with: url, placeholder: #imageLiteral(resourceName: "default-image.png"))
+                icon.cf.setImage(with: url, placeholder: UIImage(named: "default-image.png", in: UIKitSettings.bundle, compatibleWith: nil))
             }
             
             if let linkURL = linkPreview["url"] as? String {
                 self.url = linkURL
             }
+        }
+    }
+    
+    func parseMaskedData(forMessage: TextMessage){
+        if let metaData = forMessage.metaData , let injected = metaData["@injected"] as? [String : Any], let cometChatExtension =  injected["extensions"] as? [String : Any], let dataMaskingDictionary = cometChatExtension["data-masking"] as? [String : Any] {
+            print("forMessage: \(forMessage.stringValue())")
+            if let data = dataMaskingDictionary["data"] as? [String:Any], let sensitiveData = data["sensitive_data"] as? String {
+                
+                if sensitiveData == "yes" {
+                    if let maskedMessage = data["message_masked"] as? String {
+                        message.text = maskedMessage
+                    }else{
+                        message.text = forMessage.text
+                    }
+                }else{
+                    message.text = forMessage.text
+                }
+            }else{
+                message.text = forMessage.text
+            }
+        }else{
+            
+            if forMessage.text.containsOnlyEmojis() {
+                if forMessage.text.count == 1 {
+                    message.font =  UIFont.systemFont(ofSize: 51, weight: .regular)
+                }else if forMessage.text.count == 2 {
+                    message.font =  UIFont.systemFont(ofSize: 34, weight: .regular)
+                }else if forMessage.text.count == 3{
+                    message.font =  UIFont.systemFont(ofSize: 25, weight: .regular)
+                }else{
+                    message.font =  UIFont.systemFont(ofSize: 17, weight: .regular)
+                }
+            }else{
+                message.font =  UIFont.systemFont(ofSize: 17, weight: .regular)
+            }
+            self.message.text = forMessage.text
         }
     }
     
@@ -175,14 +252,6 @@ class RightLinkPreviewBubble: UITableViewCell {
     
      override func setSelected(_ selected: Bool, animated: Bool) {
            super.setSelected(selected, animated: animated)
-           switch isEditing {
-           case true:
-               switch selected {
-               case true: self.tintedView.isHidden = false
-               case false: self.tintedView.isHidden = true
-               }
-           case false: break
-           }
        }
     
     

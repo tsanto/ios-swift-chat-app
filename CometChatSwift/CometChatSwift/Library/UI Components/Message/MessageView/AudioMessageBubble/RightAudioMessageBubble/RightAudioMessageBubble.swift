@@ -15,8 +15,9 @@ class RightAudioMessageBubble: UITableViewCell {
 
     // MARK: - Declaration of IBOutlets
     
+    @IBOutlet weak var reactionView: ReactionView!
+    @IBOutlet weak var messageView: UIView!
     @IBOutlet weak var replybutton: UIButton!
-    @IBOutlet weak var tintedView: UIView!
     @IBOutlet weak var name: UILabel!
     @IBOutlet weak var size: UILabel!
     @IBOutlet weak var icon: UIImageView!
@@ -39,35 +40,42 @@ class RightAudioMessageBubble: UITableViewCell {
     
     var audioMessage: MediaMessage! {
         didSet {
+                self.reactionView.parseMessageReactionForMessage(message: audioMessage) { (success) in
+                    if success == true {
+                        self.reactionView.isHidden = false
+                    }else{
+                        self.reactionView.isHidden = true
+                    }
+                }
                    receiptStack.isHidden = true
                    if audioMessage.sentAt == 0 {
-                       timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                       timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
                        name.text = "Audio File"
-                       size.text = NSLocalizedString("calculating...", comment: "")
+                       size.text = NSLocalizedString("calculating...", bundle: UIKitSettings.bundle, comment: "")
                    }else{
                        timeStamp.text = String().setMessageTime(time: audioMessage.sentAt)
                        name.text = "Audio File"
                     if let fileSize = audioMessage.attachment?.fileSize {
-                        print(Units(bytes: Int64(fileSize)).getReadableUnit())
+                      
                         size.text = Units(bytes: Int64(fileSize)).getReadableUnit()
                     }
                    }
     
-                       if audioMessage.readAt > 0 && audioMessage.receiverType == .user {
-                       receipt.image = #imageLiteral(resourceName: "read")
+                  if audioMessage.readAt > 0 {
+                       receipt.image = UIImage(named: "read", in: UIKitSettings.bundle, compatibleWith: nil)
                        timeStamp.text = String().setMessageTime(time: Int(audioMessage?.readAt ?? 0))
                        }else if audioMessage.deliveredAt > 0 {
-                       receipt.image = #imageLiteral(resourceName: "delivered")
+                       receipt.image = UIImage(named: "delivered", in: UIKitSettings.bundle, compatibleWith: nil)
                        timeStamp.text = String().setMessageTime(time: Int(audioMessage?.deliveredAt ?? 0))
                        }else if audioMessage.sentAt > 0 {
-                       receipt.image = #imageLiteral(resourceName: "sent")
+                       receipt.image = UIImage(named: "sent", in: UIKitSettings.bundle, compatibleWith: nil)
                        timeStamp.text = String().setMessageTime(time: Int(audioMessage?.sentAt ?? 0))
                        }else if audioMessage.sentAt == 0 {
-                          receipt.image = #imageLiteral(resourceName: "wait")
-                          timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                          receipt.image = UIImage(named: "wait", in: UIKitSettings.bundle, compatibleWith: nil)
+                          timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
                        }
             
-            if audioMessage?.replyCount != 0 {
+            if audioMessage?.replyCount != 0 && UIKitSettings.threadedChats == .enabled {
                 replybutton.isHidden = false
                 if audioMessage?.replyCount == 1 {
                     replybutton.setTitle("1 reply", for: .normal)
@@ -79,6 +87,14 @@ class RightAudioMessageBubble: UITableViewCell {
             }else{
                 replybutton.isHidden = true
             }
+            
+            if UIKitSettings.showReadDeliveryReceipts == .disabled {
+                receipt.isHidden = true
+            }else{
+                receipt.isHighlighted = false
+            }
+            messageView.backgroundColor = UIKitSettings.primaryColor
+            replybutton.tintColor = UIKitSettings.primaryColor
             
         }
     }
@@ -100,18 +116,26 @@ class RightAudioMessageBubble: UITableViewCell {
             selectionColor = .white
         }
     }
+    // MARK: - Initialization of required Methods
+      
+       override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+            super.setHighlighted(highlighted, animated: animated)
+            if #available(iOS 13.0, *) {
+                
+            } else {
+                messageView.backgroundColor =  UIKitSettings.primaryColor
+            }
+            
+        }
 
-     override func setSelected(_ selected: Bool, animated: Bool) {
-           super.setSelected(selected, animated: animated)
-           switch isEditing {
-           case true:
-               switch selected {
-               case true: self.tintedView.isHidden = false
-               case false: self.tintedView.isHidden = true
-               }
-           case false: break
-           }
-       }
+        override func setSelected(_ selected: Bool, animated: Bool) {
+            super.setSelected(selected, animated: animated)
+            if #available(iOS 13.0, *) {
+                
+            } else {
+                messageView.backgroundColor =  UIKitSettings.primaryColor
+            }
+        }
     
 }
 

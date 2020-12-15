@@ -18,6 +18,7 @@ class LeftVideoMessageBubble: UITableViewCell {
     // MARK: - Declaration of IBInspectable
     
     
+    @IBOutlet weak var reactionView: ReactionView!
     @IBOutlet weak var replybutton: UIButton!
     @IBOutlet weak var avatar: Avatar!
     @IBOutlet weak var imageMessage: UIImageView!
@@ -42,6 +43,13 @@ class LeftVideoMessageBubble: UITableViewCell {
     
     var mediaMessage: MediaMessage!{
         didSet {
+            self.reactionView.parseMessageReactionForMessage(message: mediaMessage) { (success) in
+                if success == true {
+                    self.reactionView.isHidden = false
+                }else{
+                    self.reactionView.isHidden = true
+                }
+            }
             if let userName = mediaMessage.sender?.name {
                 name.text = userName + ":"
             }
@@ -56,7 +64,7 @@ class LeftVideoMessageBubble: UITableViewCell {
                 avatar.set(image: avatarURL, with: mediaMessage.sender?.name ?? "")
             }
             parseThumbnailForVideo(forMessage: mediaMessage)
-            if mediaMessage?.replyCount != 0 {
+            if mediaMessage?.replyCount != 0 &&  UIKitSettings.threadedChats == .enabled {
                 replybutton.isHidden = false
                 if mediaMessage?.replyCount == 1 {
                     replybutton.setTitle("1 reply", for: .normal)
@@ -68,26 +76,34 @@ class LeftVideoMessageBubble: UITableViewCell {
             }else{
                 replybutton.isHidden = true
             }
+            replybutton.tintColor = UIKitSettings.primaryColor
         }
     }
     
     var mediaMessageInThread: MediaMessage! {
           didSet {
               receiptStack.isHidden = true
+            self.reactionView.parseMessageReactionForMessage(message: mediaMessageInThread) { (success) in
+                if success == true {
+                    self.reactionView.isHidden = false
+                }else{
+                    self.reactionView.isHidden = true
+                }
+            }
               if mediaMessageInThread.sentAt == 0 {
-                  timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                  timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
               }else{
                
                   timeStamp.text = String().setMessageTime(time: mediaMessageInThread.sentAt)
               }
-            if mediaMessageInThread.readAt > 0 && mediaMessageInThread.receiverType == .user {
+              if mediaMessageInThread.readAt > 0 {
               timeStamp.text = String().setMessageTime(time: Int(mediaMessageInThread?.readAt ?? 0))
               }else if mediaMessageInThread.deliveredAt > 0 {
               timeStamp.text = String().setMessageTime(time: Int(mediaMessageInThread?.deliveredAt ?? 0))
               }else if mediaMessageInThread.sentAt > 0 {
               timeStamp.text = String().setMessageTime(time: Int(mediaMessageInThread?.sentAt ?? 0))
               }else if mediaMessageInThread.sentAt == 0 {
-                 timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                 timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
                  name.text = LoggedInUser.name.capitalized + ":"
               }
               parseThumbnailForVideo(forMessage: mediaMessageInThread)
@@ -138,7 +154,7 @@ class LeftVideoMessageBubble: UITableViewCell {
      - Copyright:  ©  2019 CometChat Inc.
      */
     
-    public func set(Image: UIImageView, forURL url: String) {
+     func set(Image: UIImageView, forURL url: String) {
         let url = URL(string: url)
         Image.cf.setImage(with: url)
     }

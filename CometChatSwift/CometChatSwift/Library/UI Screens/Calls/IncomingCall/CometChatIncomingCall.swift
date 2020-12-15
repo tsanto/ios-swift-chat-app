@@ -26,6 +26,7 @@ public class CometChatIncomingCall: UIViewController {
     // MARK: - Declaration of Variables
     
     var currentCall: Call?
+    var callSetting: CallSettings?
     
     // MARK: - View controller lifecycle methods
     
@@ -35,6 +36,14 @@ public class CometChatIncomingCall: UIViewController {
         if let call = currentCall {
             setupAppearance(forCall: call)
         }
+    }
+    
+    public override func loadView() {
+        let bundle = Bundle(for: type(of: self))
+        let nib = UINib(nibName: "CometChatIncomingCall", bundle: bundle)
+        let view = nib.instantiate(withOwner: self, options: nil)[0] as! UIView
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.view  = view
     }
     
     override public func viewWillAppear(_ animated: Bool) {
@@ -69,19 +78,19 @@ public class CometChatIncomingCall: UIViewController {
             switch call.receiverType {
             case .user where call.callType == .audio:
                 if let user = call.callInitiator as? User {
-                    self.set(name: user.name?.capitalized ?? "", avatarURL: user.avatar ?? "", callStatus: "Incoming Audio Call", callStatusIcon: #imageLiteral(resourceName: "incomingAudio"))
+                    self.set(name: user.name?.capitalized ?? "", avatarURL: user.avatar ?? "", callStatus: "Incoming Audio Call", callStatusIcon: UIImage(named: "incomingAudio", in: UIKitSettings.bundle, compatibleWith: nil)!)
                 }
             case .user where call.callType == .video:
                 if let user = call.callInitiator as? User {
-                    self.set(name: user.name?.capitalized ?? "", avatarURL: user.avatar ?? "", callStatus: "Incoming Video Call", callStatusIcon: #imageLiteral(resourceName: "incomingVideo"))
+                    self.set(name: user.name?.capitalized ?? "", avatarURL: user.avatar ?? "", callStatus: "Incoming Video Call", callStatusIcon: UIImage(named: "incomingVideo", in: UIKitSettings.bundle, compatibleWith: nil)!)
                 }
             case .group where call.callType == .audio:
                 if let group = call.callReceiver as? Group {
-                    self.set(name: group.name?.capitalized ?? "", avatarURL: group.icon ?? "", callStatus: "Incoming Audio Call", callStatusIcon: #imageLiteral(resourceName: "incomingAudio"))
+                    self.set(name: group.name?.capitalized ?? "", avatarURL: group.icon ?? "", callStatus: "Incoming Audio Call", callStatusIcon: UIImage(named: "incomingAudio", in: UIKitSettings.bundle, compatibleWith: nil)!)
                 }
             case .group where call.callType == .video:
                 if let group = call.callReceiver as? Group {
-                    self.set(name: group.name?.capitalized ?? "", avatarURL: group.icon ?? "", callStatus: "Incoming Video Call", callStatusIcon: #imageLiteral(resourceName: "incomingVideo"))
+                    self.set(name: group.name?.capitalized ?? "", avatarURL: group.icon ?? "", callStatus: "Incoming Video Call", callStatusIcon: UIImage(named: "incomingVideo", in: UIKitSettings.bundle, compatibleWith: nil)!)
                 }
             case .user:  break
             case .group: break
@@ -130,27 +139,37 @@ public class CometChatIncomingCall: UIViewController {
             CometChatSoundManager().play(sound: .incomingCall, bool: false)
             CometChat.acceptCall(sessionID: call.sessionID ?? "", onSuccess: { (acceptedCall) in
                 if acceptedCall != nil {
+                    
                     DispatchQueue.main.async {
-                        CometChat.startCall(sessionID: call.sessionID ?? "", inView: self.view, userJoined: { (userJoined) in
+                        
+                        if acceptedCall?.receiverType == .user {
+                            
+                            self.callSetting = CallSettings.CallSettingsBuilder(callView: self.view, sessionId: call.sessionID ?? "").setMode(mode: .MODE_SINGLE).build()
+                        }else {
+                            
+                            self.callSetting = CallSettings.CallSettingsBuilder(callView: self.view, sessionId: call.sessionID ?? "").build()
+                        }
+                        
+                        CometChat.startCall(callSettings: self.callSetting!) { (userJoined) in
                             DispatchQueue.main.async {
                                 if let name = userJoined?.name {
                                     let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) joined.", duration: .short)
                                     snackbar.show()
                                 }
                             }
-                        }, userLeft: { (userLeft) in
+                        } userLeft: { (userLeft) in
                             DispatchQueue.main.async {
                                 if let name = userLeft?.name {
                                     let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) left.", duration: .short)
                                     snackbar.show()
                                 }
                             }
-                        }, onError: { (error) in
-                            DispatchQueue.main.async {
-                                let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Unable to start call.", duration: .short)
-                                snackbar.show()
-                            }
-                        }) { (callEnded) in
+                            } onError: { (error) in
+                                DispatchQueue.main.async {
+                                    let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Unable to start call.", duration: .short)
+                                    snackbar.show()
+                                }
+                        } callEnded: { (callEnded) in
                             DispatchQueue.main.async {
                                 self.dismiss()
                                 let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Call Ended.", duration: .short)

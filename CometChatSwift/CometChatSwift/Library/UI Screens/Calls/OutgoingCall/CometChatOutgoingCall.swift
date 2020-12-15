@@ -12,7 +12,7 @@ import  AVFoundation
 
 /*  ----------------------------------------------------------------------------------------- */
 
-public class CometChatOutgoingCall: UIViewController {
+@objc  public class CometChatOutgoingCall: UIViewController {
     
       // MARK: - Declaration of Outlets
     @IBOutlet weak var avatar: Avatar!
@@ -22,13 +22,21 @@ public class CometChatOutgoingCall: UIViewController {
     var currentUser: User?
     var currentGroup: Group?
     var currentCall: Call?
-    
+    var callSetting: CallSettings?
      // MARK: - View controller lifecycle methods
     
     override public func viewDidLoad() {
         super.viewDidLoad()
         CometChatSoundManager().play(sound: .outgoingCall, bool: true)
          
+    }
+    
+    public override func loadView() {
+        let bundle = Bundle(for: type(of: self))
+        let nib = UINib(nibName: "CometChatOutgoingCall", bundle: bundle)
+        let view = nib.instantiate(withOwner: self, options: nil)[0] as! UIView
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.view  = view
     }
     
     override public func viewWillAppear(_ animated: Bool) {
@@ -55,7 +63,7 @@ public class CometChatOutgoingCall: UIViewController {
             let call = Call(receiverId: user.uid ?? "", callType: call, receiverType: .user)
             CometChat.initiateCall(call: call, onSuccess: { (ongoingCall) in
                 self.currentCall = ongoingCall
-                print("call is: \(String(describing: ongoingCall?.stringValue()))")
+                
                 DispatchQueue.main.async {
                     let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Calling \(name)", duration: .short)
                     snackbar.show()
@@ -165,32 +173,41 @@ extension CometChatOutgoingCall: OutgoingCallDelegate {
         if acceptedCall != nil {
             if let session = acceptedCall.sessionID {
                  DispatchQueue.main.async {
-                CometChat.startCall(sessionID: session, inView: self.view, userJoined: { (userJoined) in
-                    DispatchQueue.main.async {
-                        if let name = userJoined?.name {
-                            let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) joined.", duration: .short)
+                    
+                    if acceptedCall.receiverType == .user {
+                        
+                        self.callSetting = CallSettings.CallSettingsBuilder(callView: self.view, sessionId: session).setMode(mode: .MODE_SINGLE).build()
+                    }else {
+                        
+                        self.callSetting = CallSettings.CallSettingsBuilder(callView: self.view, sessionId: session).build()
+                    }
+            
+                    CometChat.startCall(callSettings: self.callSetting!) { (userJoined) in
+                        DispatchQueue.main.async {
+                            if let name = userJoined?.name {
+                                let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) joined.", duration: .short)
+                                snackbar.show()
+                            }
+                        }
+                    } userLeft: { (userLeft) in
+                        DispatchQueue.main.async {
+                            if let name = userLeft?.name {
+                                let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) left.", duration: .short)
+                                snackbar.show()
+                            }
+                        }
+                    } onError: { (error) in
+                        DispatchQueue.main.async {
+                            let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Unable to start call.", duration: .short)
+                            snackbar.show()
+                        }
+                    } callEnded: { (ended) in
+                        DispatchQueue.main.async {
+                            self.dismiss()
+                            let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Call Ended.", duration: .short)
                             snackbar.show()
                         }
                     }
-                }, userLeft: { (userLeft) in
-                    DispatchQueue.main.async {
-                        if let name = userLeft?.name {
-                            let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "\(name) left.", duration: .short)
-                            snackbar.show()
-                        }
-                    }
-                }, onError: { (error) in
-                    DispatchQueue.main.async {
-                        let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Unable to start call.", duration: .short)
-                        snackbar.show()
-                    }
-                }) { (callEnded) in
-                    DispatchQueue.main.async {
-                        self.dismiss()
-                        let snackbar: CometChatSnackbar = CometChatSnackbar.init(message: "Call Ended.", duration: .short)
-                        snackbar.show()
-                    }
-                }
                 }
             }
         }

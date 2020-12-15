@@ -17,13 +17,13 @@ class RightVideoMessageBubble: UITableViewCell {
     
      // MARK: - Declaration of IBInspectable
     
+    @IBOutlet weak var reactionView: ReactionView!
     @IBOutlet weak var replybutton: UIButton!
     @IBOutlet weak var timeStamp: UILabel!
     @IBOutlet weak var imageMessage: UIImageView!
     @IBOutlet weak var activityIndicator: CCActivityIndicator!
     @IBOutlet weak var receipt: UIImageView!
     @IBOutlet weak var receiptStack: UIStackView!
-    @IBOutlet weak var tintedView: UIView!
     
     
     // MARK: - Declaration of Variables
@@ -41,9 +41,16 @@ class RightVideoMessageBubble: UITableViewCell {
     
     var mediaMessage: MediaMessage! {
         didSet {
+                self.reactionView.parseMessageReactionForMessage(message: mediaMessage) { (success) in
+                    if success == true {
+                        self.reactionView.isHidden = false
+                    }else{
+                        self.reactionView.isHidden = true
+                    }
+                }
             receiptStack.isHidden = true
             if mediaMessage.sentAt == 0 {
-                timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
                 activityIndicator.isHidden = false
                 activityIndicator.startAnimating()
             }else{
@@ -51,22 +58,22 @@ class RightVideoMessageBubble: UITableViewCell {
                 activityIndicator.stopAnimating()
                 timeStamp.text = String().setMessageTime(time: mediaMessage.sentAt)
             }
-            if mediaMessage.readAt > 0 && mediaMessage.receiverType == .user {
-            receipt.image = #imageLiteral(resourceName: "read")
+            if mediaMessage.readAt > 0 {
+            receipt.image = UIImage(named: "read", in: UIKitSettings.bundle, compatibleWith: nil)
             timeStamp.text = String().setMessageTime(time: Int(mediaMessage?.readAt ?? 0))
             }else if mediaMessage.deliveredAt > 0 {
-            receipt.image = #imageLiteral(resourceName: "delivered")
+            receipt.image = UIImage(named: "delivered", in: UIKitSettings.bundle, compatibleWith: nil)
             timeStamp.text = String().setMessageTime(time: Int(mediaMessage?.deliveredAt ?? 0))
             }else if mediaMessage.sentAt > 0 {
-            receipt.image = #imageLiteral(resourceName: "sent")
+            receipt.image = UIImage(named: "sent", in: UIKitSettings.bundle, compatibleWith: nil)
             timeStamp.text = String().setMessageTime(time: Int(mediaMessage?.sentAt ?? 0))
             }else if mediaMessage.sentAt == 0 {
-               receipt.image = #imageLiteral(resourceName: "wait")
-               timeStamp.text = NSLocalizedString("SENDING", comment: "")
+               receipt.image = UIImage(named: "wait", in: UIKitSettings.bundle, compatibleWith: nil)
+               timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
             }
             parseThumbnailForVideo(forMessage: mediaMessage)
-            
-            if mediaMessage?.replyCount != 0 {
+           
+            if mediaMessage?.replyCount != 0 &&  UIKitSettings.threadedChats == .enabled {
                   replybutton.isHidden = false
                 if mediaMessage?.replyCount == 1 {
                     replybutton.setTitle("1 reply", for: .normal)
@@ -77,6 +84,12 @@ class RightVideoMessageBubble: UITableViewCell {
                 }
             }else{
                 replybutton.isHidden = true
+            }
+            replybutton.tintColor = UIKitSettings.primaryColor
+            if UIKitSettings.showReadDeliveryReceipts == .disabled {
+                receipt.isHidden = true
+            }else{
+                receipt.isHighlighted = false
             }
         }
     }
@@ -102,14 +115,7 @@ class RightVideoMessageBubble: UITableViewCell {
     
      override func setSelected(_ selected: Bool, animated: Bool) {
            super.setSelected(selected, animated: animated)
-           switch isEditing {
-           case true:
-               switch selected {
-               case true: self.tintedView.isHidden = false
-               case false: self.tintedView.isHidden = true
-               }
-           case false: break
-           }
+           
        }
 
     
@@ -120,7 +126,7 @@ class RightVideoMessageBubble: UITableViewCell {
     - Author: CometChat Team
     - Copyright:  ©  2019 CometChat Inc.
     */
-    public func set(Image: UIImageView, forURL url: String) {
+     func set(Image: UIImageView, forURL url: String) {
         let url = URL(string: url)
         Image.cf.setImage(with: url)
     }

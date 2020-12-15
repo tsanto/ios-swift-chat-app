@@ -15,8 +15,9 @@ class LeftFileMessageBubble: UITableViewCell {
     
     // MARK: - Declaration of IBOutlets
     
+    @IBOutlet weak var reactionView: ReactionView!
+    @IBOutlet weak var messageView: UIView!
     @IBOutlet weak var replybutton: UIButton!
-    @IBOutlet weak var tintedView: UIView!
     @IBOutlet weak var fileName: UILabel!
     @IBOutlet weak var type: UILabel!
     @IBOutlet weak var size: UILabel!
@@ -42,6 +43,13 @@ class LeftFileMessageBubble: UITableViewCell {
     
     var fileMessage: MediaMessage! {
         didSet {
+            self.reactionView.parseMessageReactionForMessage(message: fileMessage) { (success) in
+                if success == true {
+                    self.reactionView.isHidden = false
+                }else{
+                    self.reactionView.isHidden = true
+                }
+            }
             receiptStack.isHidden = true
             if fileMessage.receiverType == .group {
               nameView.isHidden = false
@@ -62,7 +70,7 @@ class LeftFileMessageBubble: UITableViewCell {
                 avatar.set(image: avatarURL, with: fileMessage.sender?.name ?? "")
             }
             
-            if fileMessage?.replyCount != 0 {
+            if fileMessage?.replyCount != 0  &&  UIKitSettings.threadedChats == .enabled {
                 replybutton.isHidden = false
                 if fileMessage?.replyCount == 1 {
                     replybutton.setTitle("1 reply", for: .normal)
@@ -74,17 +82,26 @@ class LeftFileMessageBubble: UITableViewCell {
             }else{
                 replybutton.isHidden = true
             }
+            replybutton.tintColor = UIKitSettings.primaryColor
+            
         }
     }
     
     var fileMessageInThread: MediaMessage! {
         didSet {
             receiptStack.isHidden = true
+            self.reactionView.parseMessageReactionForMessage(message: fileMessageInThread) { (success) in
+                if success == true {
+                    self.reactionView.isHidden = false
+                }else{
+                    self.reactionView.isHidden = true
+                }
+            }
             if fileMessageInThread.sentAt == 0 {
-                timeStamp.text = NSLocalizedString("SENDING", comment: "")
-                name.text = NSLocalizedString("---", comment: "")
-                type.text = NSLocalizedString("---", comment: "")
-                size.text = NSLocalizedString("---", comment: "")
+                timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
+                name.text = NSLocalizedString("---", bundle: UIKitSettings.bundle, comment: "")
+                type.text = NSLocalizedString("---", bundle: UIKitSettings.bundle, comment: "")
+                size.text = NSLocalizedString("---", bundle: UIKitSettings.bundle, comment: "")
             }else{
                 timeStamp.text = String().setMessageTime(time: fileMessageInThread.sentAt)
                 name.text = fileMessageInThread.attachment?.fileName.capitalized
@@ -94,14 +111,14 @@ class LeftFileMessageBubble: UITableViewCell {
                 }
             }
              nameView.isHidden = false
-            if fileMessageInThread.readAt > 0 && fileMessageInThread.receiverType == .user {
+            if fileMessageInThread.readAt > 0 {
                 timeStamp.text = String().setMessageTime(time: Int(fileMessageInThread?.readAt ?? 0))
             }else if fileMessageInThread.deliveredAt > 0 {
                 timeStamp.text = String().setMessageTime(time: Int(fileMessageInThread?.deliveredAt ?? 0))
             }else if fileMessageInThread.sentAt > 0 {
                 timeStamp.text = String().setMessageTime(time: Int(fileMessageInThread?.sentAt ?? 0))
             }else if fileMessageInThread.sentAt == 0 {
-                timeStamp.text = NSLocalizedString("SENDING", comment: "")
+                timeStamp.text = NSLocalizedString("SENDING", bundle: UIKitSettings.bundle, comment: "")
                  name.text = LoggedInUser.name.capitalized + ":"
             }
             replybutton.isHidden = true
@@ -127,17 +144,24 @@ class LeftFileMessageBubble: UITableViewCell {
         }
     }
     
-     override func setSelected(_ selected: Bool, animated: Bool) {
-           super.setSelected(selected, animated: animated)
-           switch isEditing {
-           case true:
-               switch selected {
-               case true: self.tintedView.isHidden = false
-               case false: self.tintedView.isHidden = true
-               }
-           case false: break
-           }
-       }
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        if #available(iOS 13.0, *) {
+            
+        } else {
+            messageView.backgroundColor =  .lightGray
+        }
+        
+    }
+    
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        if #available(iOS 13.0, *) {
+            
+        } else {
+            messageView.backgroundColor =  .lightGray
+        }
+    }
     
 }
 
